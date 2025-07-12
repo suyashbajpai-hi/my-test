@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Bold, 
-  Italic, 
-  Strikethrough, 
-  List, 
-  ListOrdered, 
-  Smile, 
-  Link, 
+import React, { useState, useRef, useEffect } from "react";
+import {
+  Bold,
+  Italic,
+  Strikethrough,
+  List,
+  ListOrdered,
+  Smile,
+  Link,
   Image,
   AlignLeft,
   AlignCenter,
@@ -14,8 +14,8 @@ import {
   Code,
   Quote,
   Undo,
-  Redo
-} from 'lucide-react';
+  Redo,
+} from "lucide-react";
 
 interface RichTextEditorProps {
   value: string;
@@ -24,23 +24,81 @@ interface RichTextEditorProps {
   minHeight?: string;
 }
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
-  value, 
-  onChange, 
+// Move emojiList outside component to prevent recreation on every render
+const emojiList = [
+  "😀",
+  "😊",
+  "😎",
+  "🤔",
+  "👍",
+  "👎",
+  "❤",
+  "🎉",
+  "💡",
+  "🔥",
+  "✨",
+  "🚀",
+  "💯",
+  "🎯",
+  "⭐",
+  "🌟",
+  "💪",
+  "🙌",
+  "👏",
+  "🤝",
+  "📝",
+  "💻",
+  "🖥",
+  "📱",
+  "⚡",
+  "🌈",
+  "🎨",
+  "🔧",
+  "⚙",
+  "🛠",
+];
+
+const RichTextEditor: React.FC<RichTextEditorProps> = ({
+  value,
+  onChange,
   placeholder = "Write your content here...",
-  minHeight = "200px"
+  minHeight = "200px",
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [linkUrl, setLinkUrl] = useState('');
-  const [linkText, setLinkText] = useState('');
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkText, setLinkText] = useState("");
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       editorRef.current.innerHTML = value;
     }
   }, [value]);
+
+  // Handle click outside for emoji picker
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(target) &&
+        !target.closest("[data-emoji-button]") &&
+        !target.closest("[data-emoji-item]")
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   const execCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value);
@@ -61,68 +119,108 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (editorRef.current) {
       editorRef.current.focus();
       const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        const emojiNode = document.createTextNode(emoji);
-        range.insertNode(emojiNode);
-        range.setStartAfter(emojiNode);
-        range.setEndAfter(emojiNode);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      } else {
-        editorRef.current.innerHTML += emoji;
+
+      try {
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          // Check if the range is within the editor
+          if (editorRef.current.contains(range.commonAncestorContainer)) {
+            range.deleteContents();
+            const emojiNode = document.createTextNode(emoji);
+            range.insertNode(emojiNode);
+            range.setStartAfter(emojiNode);
+            range.setEndAfter(emojiNode);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          } else {
+            // If selection is outside editor, insert at the end
+            insertEmojiAtEnd(emoji);
+          }
+        } else {
+          // If no selection, insert at the end
+          insertEmojiAtEnd(emoji);
+        }
+        updateContent();
+      } catch (error) {
+        console.error("Error inserting emoji:", error);
+        // Fallback: insert at the end
+        insertEmojiAtEnd(emoji);
+        updateContent();
       }
-      updateContent();
     }
     setShowEmojiPicker(false);
+  };
+
+  const insertEmojiAtEnd = (emoji: string) => {
+    if (editorRef.current) {
+      const range = document.createRange();
+      range.selectNodeContents(editorRef.current);
+      range.collapse(false); // Collapse to end
+
+      const emojiNode = document.createTextNode(emoji);
+      range.insertNode(emojiNode);
+      range.setStartAfter(emojiNode);
+      range.setEndAfter(emojiNode);
+
+      const newSelection = window.getSelection();
+      if (newSelection) {
+        newSelection.removeAllRanges();
+        newSelection.addRange(range);
+      }
+    }
   };
 
   const insertLink = () => {
     if (linkUrl.trim()) {
       const displayText = linkText.trim() || linkUrl;
-      execCommand('insertHTML', `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${displayText}</a>`);
+      execCommand(
+        "insertHTML",
+        `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${displayText}</a>`
+      );
       setShowLinkInput(false);
-      setLinkUrl('');
-      setLinkText('');
+      setLinkUrl("");
+      setLinkText("");
     }
   };
 
   const insertImage = () => {
-    const url = prompt('Enter image URL:');
+    const url = prompt("Enter image URL:");
     if (url) {
-      execCommand('insertHTML', `<img src="${url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />`);
+      execCommand(
+        "insertHTML",
+        `<img src="${url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />`
+      );
     }
   };
 
   const insertCodeBlock = () => {
-    execCommand('insertHTML', '<pre style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff; margin: 8px 0; overflow-x: auto;"><code>// Your code here</code></pre>');
+    execCommand(
+      "insertHTML",
+      '<pre style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff; margin: 8px 0; overflow-x: auto;"><code>// Your code here</code></pre>'
+    );
   };
 
   const insertQuote = () => {
-    execCommand('insertHTML', '<blockquote style="border-left: 4px solid #007bff; margin: 16px 0; padding: 12px 16px; background: #f8f9fa; border-radius: 0 8px 8px 0; font-style: italic;">Quote text here</blockquote>');
+    execCommand(
+      "insertHTML",
+      '<blockquote style="border-left: 4px solid #007bff; margin: 16px 0; padding: 12px 16px; background: #f8f9fa; border-radius: 0 8px 8px 0; font-style: italic;">Quote text here</blockquote>'
+    );
   };
 
-  const emojiList = [
-    '😀', '😊', '😎', '🤔', '👍', '👎', '❤️', '🎉', '💡', '🔥',
-    '✨', '🚀', '💯', '🎯', '⭐', '🌟', '💪', '🙌', '👏', '🤝',
-    '📝', '💻', '🖥️', '📱', '⚡', '🌈', '🎨', '🔧', '⚙️', '🛠️'
-  ];
-
-  const ToolbarButton: React.FC<{ 
-    onClick: () => void; 
-    title: string; 
-    children: React.ReactNode; 
+  const ToolbarButton: React.FC<{
+    onClick: () => void;
+    title: string;
+    children: React.ReactNode;
     active?: boolean;
     className?: string;
-  }> = ({ onClick, title, children, active = false, className = '' }) => (
+  }> = ({ onClick, title, children, active = false, className = "" }) => (
     <button
       type="button"
       onClick={onClick}
       className={`p-2.5 rounded-xl transition-all duration-300 ${
-        active 
-          ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg transform scale-105' 
-          : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900 hover:scale-105'
+        active
+          ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg transform scale-105"
+          : "hover:bg-gray-100 text-gray-600 hover:text-gray-900 hover:scale-105"
       } ${className}`}
       title={title}
     >
@@ -137,36 +235,54 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           {/* Text formatting */}
           <div className="flex items-center space-x-1 bg-white/80 rounded-xl p-1 shadow-sm">
-            <ToolbarButton onClick={() => execCommand('bold')} title="Bold">
+            <ToolbarButton onClick={() => execCommand("bold")} title="Bold">
               <Bold className="h-4 w-4" />
             </ToolbarButton>
-            <ToolbarButton onClick={() => execCommand('italic')} title="Italic">
+            <ToolbarButton onClick={() => execCommand("italic")} title="Italic">
               <Italic className="h-4 w-4" />
             </ToolbarButton>
-            <ToolbarButton onClick={() => execCommand('strikeThrough')} title="Strikethrough">
+            <ToolbarButton
+              onClick={() => execCommand("strikeThrough")}
+              title="Strikethrough"
+            >
               <Strikethrough className="h-4 w-4" />
             </ToolbarButton>
           </div>
 
           {/* Lists */}
           <div className="flex items-center space-x-1 bg-white/80 rounded-xl p-1 shadow-sm">
-            <ToolbarButton onClick={() => execCommand('insertUnorderedList')} title="Bullet List">
+            <ToolbarButton
+              onClick={() => execCommand("insertUnorderedList")}
+              title="Bullet List"
+            >
               <List className="h-4 w-4" />
             </ToolbarButton>
-            <ToolbarButton onClick={() => execCommand('insertOrderedList')} title="Numbered List">
+            <ToolbarButton
+              onClick={() => execCommand("insertOrderedList")}
+              title="Numbered List"
+            >
               <ListOrdered className="h-4 w-4" />
             </ToolbarButton>
           </div>
 
           {/* Alignment */}
           <div className="hidden sm:flex items-center space-x-1 bg-white/80 rounded-xl p-1 shadow-sm">
-            <ToolbarButton onClick={() => execCommand('justifyLeft')} title="Align Left">
+            <ToolbarButton
+              onClick={() => execCommand("justifyLeft")}
+              title="Align Left"
+            >
               <AlignLeft className="h-4 w-4" />
             </ToolbarButton>
-            <ToolbarButton onClick={() => execCommand('justifyCenter')} title="Align Center">
+            <ToolbarButton
+              onClick={() => execCommand("justifyCenter")}
+              title="Align Center"
+            >
               <AlignCenter className="h-4 w-4" />
             </ToolbarButton>
-            <ToolbarButton onClick={() => execCommand('justifyRight')} title="Align Right">
+            <ToolbarButton
+              onClick={() => execCommand("justifyRight")}
+              title="Align Right"
+            >
               <AlignRight className="h-4 w-4" />
             </ToolbarButton>
           </div>
@@ -185,8 +301,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           <div className="flex items-center space-x-1 bg-white/80 rounded-xl p-1 shadow-sm">
             {/* Link */}
             <div className="relative">
-              <ToolbarButton 
-                onClick={() => setShowLinkInput(!showLinkInput)} 
+              <ToolbarButton
+                onClick={() => setShowLinkInput(!showLinkInput)}
                 title="Insert Link"
                 active={showLinkInput}
               >
@@ -236,16 +352,26 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           {/* Emoji */}
           <div className="relative">
             <div className="bg-white/80 rounded-xl p-1 shadow-sm">
-              <ToolbarButton 
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+              <ToolbarButton
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 title="Insert Emoji"
                 active={showEmojiPicker}
+                data-emoji-button
               >
                 <Smile className="h-4 w-4" />
               </ToolbarButton>
             </div>
             {showEmojiPicker && (
-              <div className="absolute top-full left-0 mt-2 bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl shadow-2xl p-4 z-20">
+              <div
+                ref={emojiPickerRef}
+                className="absolute top-full left-0 mt-2 bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl shadow-2xl p-4 z-20 max-h-64 overflow-y-auto"
+                style={{
+                  maxWidth: "calc(100vw - 2rem)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  minWidth: "280px",
+                }}
+              >
                 <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-w-xs">
                   {emojiList.map((emoji, index) => (
                     <button
@@ -253,6 +379,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                       type="button"
                       onClick={() => insertEmoji(emoji)}
                       className="p-2 hover:bg-gray-100/80 rounded-xl text-lg transition-all duration-300 hover:scale-110"
+                      data-emoji-item
                     >
                       {emoji}
                     </button>
@@ -270,10 +397,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
           {/* Undo/Redo */}
           <div className="hidden md:flex items-center space-x-1 bg-white/80 rounded-xl p-1 shadow-sm">
-            <ToolbarButton onClick={() => execCommand('undo')} title="Undo">
+            <ToolbarButton onClick={() => execCommand("undo")} title="Undo">
               <Undo className="h-4 w-4" />
             </ToolbarButton>
-            <ToolbarButton onClick={() => execCommand('redo')} title="Redo">
+            <ToolbarButton onClick={() => execCommand("redo")} title="Redo">
               <Redo className="h-4 w-4" />
             </ToolbarButton>
           </div>
@@ -292,40 +419,44 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         data-placeholder={placeholder}
       />
 
-      <style jsx>{`
-        [contenteditable]:empty:before {
-          content: attr(data-placeholder);
-          color: #9ca3af;
-          font-style: italic;
-          pointer-events: none;
-        }
-        [contenteditable]:focus {
-          outline: none;
-        }
-        [contenteditable] img {
-          max-width: 100%;
-          height: auto;
-          border-radius: 8px;
-          margin: 8px 0;
-        }
-        [contenteditable] pre {
-          background: #f8f9fa;
-          padding: 12px;
-          border-radius: 8px;
-          border-left: 4px solid #007bff;
-          margin: 8px 0;
-          overflow-x: auto;
-          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        }
-        [contenteditable] blockquote {
-          border-left: 4px solid #007bff;
-          margin: 16px 0;
-          padding: 12px 16px;
-          background: #f8f9fa;
-          border-radius: 0 8px 8px 0;
-          font-style: italic;
-        }
-      `}</style>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          [contenteditable]:empty:before {
+            content: attr(data-placeholder);
+            color: #9ca3af;
+            font-style: italic;
+            pointer-events: none;
+          }
+          [contenteditable]:focus {
+            outline: none;
+          }
+          [contenteditable] img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 8px 0;
+          }
+          [contenteditable] pre {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            margin: 8px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          }
+          [contenteditable] blockquote {
+            border-left: 4px solid #007bff;
+            margin: 16px 0;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+          }
+        `,
+        }}
+      />
     </div>
   );
 };
