@@ -40,44 +40,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     loadQuestions();
-    // Set up real-time subscriptions
-    const questionsSubscription = supabase
-      .channel('questions_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'questions' }, 
-        () => {
-          console.log('Questions updated, reloading...');
-          loadQuestions();
-        }
-      )
-      .subscribe();
-
-    const answersSubscription = supabase
-      .channel('answers_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'answers' }, 
-        () => {
-          console.log('Answers updated, reloading...');
-          loadQuestions();
-        }
-      )
-      .subscribe();
-
     if (user) {
       loadNotifications();
       loadVotes();
     }
-
-    return () => {
-      questionsSubscription.unsubscribe();
-      answersSubscription.unsubscribe();
-    };
   }, [user]);
 
   const loadQuestions = async () => {
     try {
       setIsLoading(true);
-      console.log('Loading questions...');
       
       // Load questions with author information
       const { data: questionsData, error: questionsError } = await supabase
@@ -89,7 +60,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .order('created_at', { ascending: false });
 
       if (questionsError) throw questionsError;
-      console.log('Questions loaded:', questionsData?.length || 0);
 
       // Load answers with author information for each question
       const questionsWithAnswers = await Promise.all(
@@ -156,13 +126,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       setQuestions(questionsWithAnswers);
-      console.log('Final questions with answers:', questionsWithAnswers.length);
     } catch (error) {
       console.error('Error loading questions:', error);
-      // Show user-friendly error message
-      if (error.message?.includes('relation "users" does not exist')) {
-        console.error('Database tables not created yet. Please set up Supabase first.');
-      }
     } finally {
       setIsLoading(false);
     }
@@ -227,7 +192,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) throw new Error('User must be logged in to ask questions');
 
     try {
-      console.log('Adding question:', questionData);
       const { data, error } = await supabase
         .from('questions')
         .insert({
@@ -242,7 +206,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) throw error;
-      console.log('Question added successfully:', data);
 
       await loadQuestions();
     } catch (error) {

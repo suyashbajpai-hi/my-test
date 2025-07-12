@@ -7,7 +7,6 @@ import HomePage from './components/HomePage';
 import AskQuestionPage from './components/AskQuestionPage';
 import QuestionDetailPage from './components/QuestionDetailPage';
 import ProfilePage from './components/ProfilePage';
-import DatabaseStatus from './components/DatabaseStatus';
 import { Question } from './types';
 
 type PageType = 'home' | 'ask' | 'question' | 'profile';
@@ -69,7 +68,6 @@ function App() {
               <main className="relative">
                 {renderPage()}
               </main>
-              <DatabaseStatus />
             </div>
           </div>
         </DataProvider>
