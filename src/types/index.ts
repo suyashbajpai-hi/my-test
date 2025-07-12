@@ -5,6 +5,8 @@ export interface User {
   avatar?: string;
   role: 'guest' | 'user' | 'admin';
   reputation: number;
+  badge: string;
+  questionsAnswered: number;
   joinedAt: Date;
 }
 
@@ -33,6 +35,7 @@ export interface Answer {
   updatedAt: Date;
   votes: number;
   isAccepted: boolean;
+  isAiGenerated: boolean;
 }
 
 export interface Notification {

@@ -1,18 +1,24 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Question, Answer, Notification, Vote } from '../types';
+import { supabase } from '../lib/supabase';
+import { generateAIAnswer } from '../lib/gemini';
+import { Question, Answer, Notification, Vote, User } from '../types';
 import { useAuth } from './AuthContext';
 
 interface DataContextType {
   questions: Question[];
   notifications: Notification[];
   votes: Vote[];
-  addQuestion: (question: Omit<Question, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'views' | 'answers'>) => void;
-  addAnswer: (answer: Omit<Answer, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'isAccepted'>) => void;
-  voteOnQuestion: (questionId: string, value: 1 | -1) => void;
-  voteOnAnswer: (answerId: string, value: 1 | -1) => void;
-  acceptAnswer: (questionId: string, answerId: string) => void;
-  markNotificationRead: (notificationId: string) => void;
+  isLoading: boolean;
+  addQuestion: (question: Omit<Question, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'views' | 'answers' | 'author'>) => Promise<void>;
+  addAnswer: (answer: Omit<Answer, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'isAccepted' | 'author' | 'isAiGenerated'>) => Promise<void>;
+  generateAIAnswerForQuestion: (questionId: string) => Promise<void>;
+  voteOnQuestion: (questionId: string, value: 1 | -1) => Promise<void>;
+  voteOnAnswer: (answerId: string, value: 1 | -1) => Promise<void>;
+  acceptAnswer: (questionId: string, answerId: string) => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
   getUnreadNotificationCount: () => number;
+  loadQuestions: () => Promise<void>;
+  incrementQuestionViews: (questionId: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -25,252 +31,464 @@ export const useData = () => {
   return context;
 };
 
-// Mock data
-const mockQuestions: Question[] = [
-  {
-    id: '1',
-    title: 'How to join 2 columns in a data set to make a separate column in SQL?',
-    description: '<p>I do not have the code for it as I am a beginner. An example would be nice!</p>',
-    tags: ['sql', 'joins', 'database'],
-    authorId: '1',
-    author: {
-      id: '1',
-      username: 'john_doe',
-      email: 'john@example.com',
-      role: 'user',
-      reputation: 1250,
-      joinedAt: new Date('2023-01-15')
-    },
-    createdAt: new Date('2024-01-15T10:30:00Z'),
-    updatedAt: new Date('2024-01-15T10:30:00Z'),
-    votes: 5,
-    views: 127,
-    answers: [],
-    acceptedAnswerId: undefined
-  },
-  {
-    id: '2',
-    title: 'React component not re-rendering after state change',
-    description: '<p>I have a React component that uses useState, but it\'s not re-rendering when I update the state. What could be the issue?</p>',
-    tags: ['react', 'javascript', 'hooks'],
-    authorId: '2',
-    author: {
-      id: '2',
-      username: 'jane_smith',
-      email: 'jane@example.com',
-      role: 'admin',
-      reputation: 3450,
-      joinedAt: new Date('2022-11-20')
-    },
-    createdAt: new Date('2024-01-14T15:45:00Z'),
-    updatedAt: new Date('2024-01-14T15:45:00Z'),
-    votes: 12,
-    views: 89,
-    answers: [],
-    acceptedAnswerId: undefined
-  }
-];
-
-const mockAnswers: Answer[] = [
-  {
-    id: '1',
-    content: '<p>You can use a JOIN statement in SQL. Here\'s an example:</p><pre><code>SELECT CONCAT(column1, \' \', column2) AS combined_column FROM your_table;</code></pre>',
-    questionId: '1',
-    authorId: '3',
-    author: {
-      id: '3',
-      username: 'dev_guru',
-      email: 'guru@example.com',
-      role: 'user',
-      reputation: 2890,
-      joinedAt: new Date('2023-03-10')
-    },
-    createdAt: new Date('2024-01-15T11:00:00Z'),
-    updatedAt: new Date('2024-01-15T11:00:00Z'),
-    votes: 3,
-    isAccepted: false
-  }
-];
-
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  const [questions, setQuestions] = useState<Question[]>(mockQuestions);
+  const { user, updateUserStats } = useAuth();
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize answers in questions
   useEffect(() => {
-    setQuestions(prev => prev.map(q => ({
-      ...q,
-      answers: mockAnswers.filter(a => a.questionId === q.id)
-    })));
-  }, []);
+    loadQuestions();
+    if (user) {
+      loadNotifications();
+      loadVotes();
+    }
+  }, [user]);
 
-  const addQuestion = (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'views' | 'answers'>) => {
-    if (!user) return;
+  const loadQuestions = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load questions with author information
+      const { data: questionsData, error: questionsError } = await supabase
+        .from('questions')
+        .select(`
+          *,
+          author:users!questions_author_id_fkey(*)
+        `)
+        .order('created_at', { ascending: false });
 
-    const newQuestion: Question = {
-      ...questionData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      votes: 0,
-      views: 0,
-      answers: [],
-      author: user
-    };
+      if (questionsError) throw questionsError;
 
-    setQuestions(prev => [newQuestion, ...prev]);
-  };
+      // Load answers with author information for each question
+      const questionsWithAnswers = await Promise.all(
+        (questionsData || []).map(async (question) => {
+          const { data: answersData, error: answersError } = await supabase
+            .from('answers')
+            .select(`
+              *,
+              author:users!answers_author_id_fkey(*)
+            `)
+            .eq('question_id', question.id)
+            .order('created_at', { ascending: false });
 
-  const addAnswer = (answerData: Omit<Answer, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'isAccepted'>) => {
-    if (!user) return;
+          if (answersError) throw answersError;
 
-    const newAnswer: Answer = {
-      ...answerData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      votes: 0,
-      isAccepted: false,
-      author: user
-    };
+          const answers: Answer[] = (answersData || []).map(answer => ({
+            id: answer.id,
+            content: answer.content,
+            questionId: answer.question_id,
+            authorId: answer.author_id,
+            author: {
+              id: answer.author.id,
+              username: answer.author.username,
+              email: answer.author.email,
+              avatar: answer.author.avatar_url,
+              role: answer.author.role,
+              reputation: answer.author.reputation,
+              badge: answer.author.badge,
+              questionsAnswered: answer.author.questions_answered,
+              joinedAt: new Date(answer.author.created_at)
+            },
+            createdAt: new Date(answer.created_at),
+            updatedAt: new Date(answer.updated_at),
+            votes: answer.votes,
+            isAccepted: answer.is_accepted,
+            isAiGenerated: answer.is_ai_generated
+          }));
 
-    setQuestions(prev => prev.map(q => 
-      q.id === answerData.questionId 
-        ? { ...q, answers: [...q.answers, newAnswer] }
-        : q
-    ));
+          return {
+            id: question.id,
+            title: question.title,
+            description: question.description,
+            tags: question.tags,
+            authorId: question.author_id,
+            author: {
+              id: question.author.id,
+              username: question.author.username,
+              email: question.author.email,
+              avatar: question.author.avatar_url,
+              role: question.author.role,
+              reputation: question.author.reputation,
+              badge: question.author.badge,
+              questionsAnswered: question.author.questions_answered,
+              joinedAt: new Date(question.author.created_at)
+            },
+            createdAt: new Date(question.created_at),
+            updatedAt: new Date(question.updated_at),
+            votes: question.votes,
+            views: question.views,
+            answers,
+            acceptedAnswerId: question.accepted_answer_id
+          };
+        })
+      );
 
-    // Add notification to question author
-    const question = questions.find(q => q.id === answerData.questionId);
-    if (question && question.authorId !== user.id) {
-      const notification: Notification = {
-        id: Date.now().toString(),
-        userId: question.authorId,
-        type: 'answer',
-        title: 'New Answer',
-        message: `${user.username} answered your question "${question.title}"`,
-        isRead: false,
-        createdAt: new Date(),
-        questionId: question.id,
-        answerId: newAnswer.id
-      };
-      setNotifications(prev => [notification, ...prev]);
+      setQuestions(questionsWithAnswers);
+    } catch (error) {
+      console.error('Error loading questions:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const voteOnQuestion = (questionId: string, value: 1 | -1) => {
+  const loadNotifications = async () => {
     if (!user) return;
 
-    const existingVote = votes.find(v => 
-      v.userId === user.id && v.targetId === questionId && v.targetType === 'question'
-    );
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-    if (existingVote) {
-      if (existingVote.value === value) {
-        // Remove vote
-        setVotes(prev => prev.filter(v => v.id !== existingVote.id));
-        setQuestions(prev => prev.map(q => 
-          q.id === questionId ? { ...q, votes: q.votes - value } : q
-        ));
-      } else {
-        // Change vote
-        setVotes(prev => prev.map(v => 
-          v.id === existingVote.id ? { ...v, value } : v
-        ));
-        setQuestions(prev => prev.map(q => 
-          q.id === questionId ? { ...q, votes: q.votes - existingVote.value + value } : q
-        ));
+      if (error) throw error;
+
+      const notificationsData: Notification[] = (data || []).map(notification => ({
+        id: notification.id,
+        userId: notification.user_id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        isRead: notification.is_read,
+        createdAt: new Date(notification.created_at),
+        questionId: notification.question_id,
+        answerId: notification.answer_id
+      }));
+
+      setNotifications(notificationsData);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    }
+  };
+
+  const loadVotes = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('votes')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const votesData: Vote[] = (data || []).map(vote => ({
+        id: vote.id,
+        userId: vote.user_id,
+        targetId: vote.target_id,
+        targetType: vote.target_type,
+        value: vote.value
+      }));
+
+      setVotes(votesData);
+    } catch (error) {
+      console.error('Error loading votes:', error);
+    }
+  };
+
+  const addQuestion = async (questionData: Omit<Question, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'views' | 'answers' | 'author'>) => {
+    if (!user) throw new Error('User must be logged in to ask questions');
+
+    try {
+      const { data, error } = await supabase
+        .from('questions')
+        .insert({
+          title: questionData.title,
+          description: questionData.description,
+          tags: questionData.tags,
+          author_id: user.id,
+          votes: 0,
+          views: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadQuestions();
+    } catch (error) {
+      console.error('Error adding question:', error);
+      throw error;
+    }
+  };
+
+  const addAnswer = async (answerData: Omit<Answer, 'id' | 'createdAt' | 'updatedAt' | 'votes' | 'isAccepted' | 'author' | 'isAiGenerated'>) => {
+    if (!user) throw new Error('User must be logged in to answer questions');
+
+    try {
+      const { data, error } = await supabase
+        .from('answers')
+        .insert({
+          content: answerData.content,
+          question_id: answerData.questionId,
+          author_id: user.id,
+          votes: 0,
+          is_accepted: false,
+          is_ai_generated: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update user stats
+      await updateUserStats(user.id);
+
+      // Create notification for question author
+      const question = questions.find(q => q.id === answerData.questionId);
+      if (question && question.authorId !== user.id) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: question.authorId,
+            type: 'answer',
+            title: 'New Answer',
+            message: `${user.username} answered your question "${question.title}"`,
+            is_read: false,
+            question_id: question.id,
+            answer_id: data.id
+          });
       }
-    } else {
-      // New vote
-      const newVote: Vote = {
-        id: Date.now().toString(),
-        userId: user.id,
-        targetId: questionId,
-        targetType: 'question',
-        value
-      };
-      setVotes(prev => [...prev, newVote]);
-      setQuestions(prev => prev.map(q => 
-        q.id === questionId ? { ...q, votes: q.votes + value } : q
-      ));
-    }
-  };
 
-  const voteOnAnswer = (answerId: string, value: 1 | -1) => {
-    if (!user) return;
-
-    const existingVote = votes.find(v => 
-      v.userId === user.id && v.targetId === answerId && v.targetType === 'answer'
-    );
-
-    if (existingVote) {
-      if (existingVote.value === value) {
-        // Remove vote
-        setVotes(prev => prev.filter(v => v.id !== existingVote.id));
-        setQuestions(prev => prev.map(q => ({
-          ...q,
-          answers: q.answers.map(a => 
-            a.id === answerId ? { ...a, votes: a.votes - value } : a
-          )
-        })));
-      } else {
-        // Change vote
-        setVotes(prev => prev.map(v => 
-          v.id === existingVote.id ? { ...v, value } : v
-        ));
-        setQuestions(prev => prev.map(q => ({
-          ...q,
-          answers: q.answers.map(a => 
-            a.id === answerId ? { ...a, votes: a.votes - existingVote.value + value } : a
-          )
-        })));
+      await loadQuestions();
+      if (user) {
+        await loadNotifications();
       }
-    } else {
-      // New vote
-      const newVote: Vote = {
-        id: Date.now().toString(),
-        userId: user.id,
-        targetId: answerId,
-        targetType: 'answer',
-        value
-      };
-      setVotes(prev => [...prev, newVote]);
-      setQuestions(prev => prev.map(q => ({
-        ...q,
-        answers: q.answers.map(a => 
-          a.id === answerId ? { ...a, votes: a.votes + value } : a
-        )
-      })));
+    } catch (error) {
+      console.error('Error adding answer:', error);
+      throw error;
     }
   };
 
-  const acceptAnswer = (questionId: string, answerId: string) => {
-    if (!user) return;
+  const generateAIAnswerForQuestion = async (questionId: string) => {
+    try {
+      const question = questions.find(q => q.id === questionId);
+      if (!question) throw new Error('Question not found');
+
+      // Check if AI answer already exists
+      const existingAIAnswer = question.answers.find(a => a.isAiGenerated);
+      if (existingAIAnswer) {
+        throw new Error('AI answer already exists for this question');
+      }
+
+      const aiAnswer = await generateAIAnswer(question.title, question.description);
+
+      const { data, error } = await supabase
+        .from('answers')
+        .insert({
+          content: aiAnswer,
+          question_id: questionId,
+          author_id: 'ai-assistant', // Special ID for AI
+          votes: 0,
+          is_accepted: false,
+          is_ai_generated: true
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadQuestions();
+    } catch (error) {
+      console.error('Error generating AI answer:', error);
+      throw error;
+    }
+  };
+
+  const voteOnQuestion = async (questionId: string, value: 1 | -1) => {
+    if (!user) throw new Error('User must be logged in to vote');
+
+    try {
+      const existingVote = votes.find(v => 
+        v.userId === user.id && v.targetId === questionId && v.targetType === 'question'
+      );
+
+      if (existingVote) {
+        if (existingVote.value === value) {
+          // Remove vote
+          await supabase
+            .from('votes')
+            .delete()
+            .eq('id', existingVote.id);
+
+          await supabase
+            .from('questions')
+            .update({ votes: questions.find(q => q.id === questionId)!.votes - value })
+            .eq('id', questionId);
+        } else {
+          // Change vote
+          await supabase
+            .from('votes')
+            .update({ value })
+            .eq('id', existingVote.id);
+
+          const currentVotes = questions.find(q => q.id === questionId)!.votes;
+          await supabase
+            .from('questions')
+            .update({ votes: currentVotes - existingVote.value + value })
+            .eq('id', questionId);
+        }
+      } else {
+        // New vote
+        await supabase
+          .from('votes')
+          .insert({
+            user_id: user.id,
+            target_id: questionId,
+            target_type: 'question',
+            value
+          });
+
+        await supabase
+          .from('questions')
+          .update({ votes: questions.find(q => q.id === questionId)!.votes + value })
+          .eq('id', questionId);
+      }
+
+      await loadVotes();
+      await loadQuestions();
+    } catch (error) {
+      console.error('Error voting on question:', error);
+      throw error;
+    }
+  };
+
+  const voteOnAnswer = async (answerId: string, value: 1 | -1) => {
+    if (!user) throw new Error('User must be logged in to vote');
+
+    try {
+      const existingVote = votes.find(v => 
+        v.userId === user.id && v.targetId === answerId && v.targetType === 'answer'
+      );
+
+      // Find current answer votes
+      let currentAnswerVotes = 0;
+      for (const question of questions) {
+        const answer = question.answers.find(a => a.id === answerId);
+        if (answer) {
+          currentAnswerVotes = answer.votes;
+          break;
+        }
+      }
+
+      if (existingVote) {
+        if (existingVote.value === value) {
+          // Remove vote
+          await supabase
+            .from('votes')
+            .delete()
+            .eq('id', existingVote.id);
+
+          await supabase
+            .from('answers')
+            .update({ votes: currentAnswerVotes - value })
+            .eq('id', answerId);
+        } else {
+          // Change vote
+          await supabase
+            .from('votes')
+            .update({ value })
+            .eq('id', existingVote.id);
+
+          await supabase
+            .from('answers')
+            .update({ votes: currentAnswerVotes - existingVote.value + value })
+            .eq('id', answerId);
+        }
+      } else {
+        // New vote
+        await supabase
+          .from('votes')
+          .insert({
+            user_id: user.id,
+            target_id: answerId,
+            target_type: 'answer',
+            value
+          });
+
+        await supabase
+          .from('answers')
+          .update({ votes: currentAnswerVotes + value })
+          .eq('id', answerId);
+      }
+
+      await loadVotes();
+      await loadQuestions();
+    } catch (error) {
+      console.error('Error voting on answer:', error);
+      throw error;
+    }
+  };
+
+  const acceptAnswer = async (questionId: string, answerId: string) => {
+    if (!user) throw new Error('User must be logged in');
 
     const question = questions.find(q => q.id === questionId);
-    if (!question || question.authorId !== user.id) return;
+    if (!question || question.authorId !== user.id) {
+      throw new Error('Only question author can accept answers');
+    }
 
-    setQuestions(prev => prev.map(q => 
-      q.id === questionId 
-        ? { 
-            ...q, 
-            acceptedAnswerId: answerId,
-            answers: q.answers.map(a => ({
-              ...a,
-              isAccepted: a.id === answerId
-            }))
-          }
-        : q
-    ));
+    try {
+      // Update question with accepted answer
+      await supabase
+        .from('questions')
+        .update({ accepted_answer_id: answerId })
+        .eq('id', questionId);
+
+      // Mark answer as accepted
+      await supabase
+        .from('answers')
+        .update({ is_accepted: true })
+        .eq('id', answerId);
+
+      // Mark other answers as not accepted
+      await supabase
+        .from('answers')
+        .update({ is_accepted: false })
+        .eq('question_id', questionId)
+        .neq('id', answerId);
+
+      await loadQuestions();
+    } catch (error) {
+      console.error('Error accepting answer:', error);
+      throw error;
+    }
   };
 
-  const markNotificationRead = (notificationId: string) => {
-    setNotifications(prev => prev.map(n => 
-      n.id === notificationId ? { ...n, isRead: true } : n
-    ));
+  const markNotificationRead = async (notificationId: string) => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      setNotifications(prev => prev.map(n => 
+        n.id === notificationId ? { ...n, isRead: true } : n
+      ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const incrementQuestionViews = async (questionId: string) => {
+    try {
+      const question = questions.find(q => q.id === questionId);
+      if (question) {
+        await supabase
+          .from('questions')
+          .update({ views: question.views + 1 })
+          .eq('id', questionId);
+
+        // Update local state
+        setQuestions(prev => prev.map(q => 
+          q.id === questionId ? { ...q, views: q.views + 1 } : q
+        ));
+      }
+    } catch (error) {
+      console.error('Error incrementing question views:', error);
+    }
   };
 
   const getUnreadNotificationCount = () => {
@@ -282,13 +500,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     questions,
     notifications,
     votes,
+    isLoading,
     addQuestion,
     addAnswer,
+    generateAIAnswerForQuestion,
     voteOnQuestion,
     voteOnAnswer,
     acceptAnswer,
     markNotificationRead,
-    getUnreadNotificationCount
+    getUnreadNotificationCount,
+    loadQuestions,
+    incrementQuestionViews
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

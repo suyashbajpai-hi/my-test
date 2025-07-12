@@ -9,9 +9,10 @@ import AuthModal from './AuthModal';
 interface HeaderProps {
   onAskQuestion: () => void;
   onHome: () => void;
+  onProfile: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onAskQuestion, onHome }) => {
+const Header: React.FC<HeaderProps> = ({ onAskQuestion, onHome, onProfile }) => {
   const { user, logout } = useAuth();
   const { getUnreadNotificationCount } = useData();
   const { theme, toggleTheme, isDark } = useTheme();
@@ -105,15 +106,18 @@ const Header: React.FC<HeaderProps> = ({ onAskQuestion, onHome }) => {
 
                   {/* User Menu */}
                   <div className="flex items-center space-x-3 glass-effect rounded-2xl px-4 py-2">
-                    <div className="flex items-center space-x-2 text-sm">
+                    <button
+                      onClick={onProfile}
+                      className="flex items-center space-x-2 text-sm hover:bg-[color:var(--bg-tertiary)] rounded-xl px-2 py-1 transition-all duration-300"
+                    >
                       <div className="w-8 h-8 bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] rounded-full flex items-center justify-center">
                         <User className="h-4 w-4 text-white" />
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col text-left">
                         <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{user.username}</span>
                         <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{user.reputation} rep</span>
                       </div>
-                    </div>
+                    </button>
                     <button
                       onClick={logout}
                       className="p-2 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-300"
@@ -206,15 +210,21 @@ const Header: React.FC<HeaderProps> = ({ onAskQuestion, onHome }) => {
                   </button>
                   
                   <div className="flex items-center justify-between p-3 glass-effect rounded-2xl">
-                    <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => {
+                        onProfile();
+                        setShowMobileMenu(false);
+                      }}
+                      className="flex items-center space-x-3 flex-1"
+                    >
                       <div className="w-10 h-10 bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] rounded-full flex items-center justify-center">
                         <User className="h-5 w-5 text-white" />
                       </div>
-                      <div>
+                      <div className="text-left">
                         <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{user.username}</div>
                         <div className="text-sm" style={{ color: 'var(--text-tertiary)' }}>{user.reputation} reputation</div>
                       </div>
-                    </div>
+                    </button>
                     <button
                       onClick={() => {
                         logout();

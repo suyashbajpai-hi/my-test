@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, ArrowUp, ArrowDown, User, Check, Eye, MessageSquare, Award, Clock, Star } from 'lucide-react';
+import { ArrowLeft, ArrowUp, ArrowDown, User, Check, Eye, MessageSquare, Award, Clock, Star, Bot, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -14,14 +14,16 @@ interface QuestionDetailPageProps {
 
 const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBack }) => {
   const { user } = useAuth();
-  const { voteOnQuestion, voteOnAnswer, acceptAnswer, addAnswer, votes } = useData();
+  const { voteOnQuestion, voteOnAnswer, acceptAnswer, addAnswer, votes, generateAIAnswerForQuestion, incrementQuestionViews } = useData();
   const { isDark } = useTheme();
   const [answerContent, setAnswerContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   useEffect(() => {
-    // In a real implementation, you'd make an API call to increment views
-  }, [question.id]);
+    // Increment views when question is viewed
+    incrementQuestionViews(question.id);
+  }, [question.id, incrementQuestionViews]);
 
   const getUserVote = (targetId: string, targetType: 'question' | 'answer') => {
     if (!user) return null;
@@ -32,19 +34,28 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
     );
   };
 
-  const handleVote = (targetId: string, targetType: 'question' | 'answer', value: 1 | -1) => {
+  const handleVote = async (targetId: string, targetType: 'question' | 'answer', value: 1 | -1) => {
     if (!user) return;
     
-    if (targetType === 'question') {
-      voteOnQuestion(targetId, value);
-    } else {
-      voteOnAnswer(targetId, value);
+    try {
+      if (targetType === 'question') {
+        await voteOnQuestion(targetId, value);
+      } else {
+        await voteOnAnswer(targetId, value);
+      }
+    } catch (error) {
+      console.error('Error voting:', error);
     }
   };
 
-  const handleAcceptAnswer = (answerId: string) => {
+  const handleAcceptAnswer = async (answerId: string) => {
     if (!user || user.id !== question.authorId) return;
-    acceptAnswer(question.id, answerId);
+    
+    try {
+      await acceptAnswer(question.id, answerId);
+    } catch (error) {
+      console.error('Error accepting answer:', error);
+    }
   };
 
   const handleSubmitAnswer = async (e: React.FormEvent) => {
@@ -53,11 +64,10 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
 
     setIsSubmitting(true);
     try {
-      addAnswer({
+      await addAnswer({
         content: answerContent,
         questionId: question.id,
-        authorId: user.id,
-        author: user
+        authorId: user.id
       });
       setAnswerContent('');
     } catch (error) {
@@ -67,8 +77,21 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
     }
   };
 
+  const handleGenerateAIAnswer = async () => {
+    setIsGeneratingAI(true);
+    try {
+      await generateAIAnswerForQuestion(question.id);
+    } catch (error: any) {
+      console.error('Failed to generate AI answer:', error);
+      alert(error.message || 'Failed to generate AI answer');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const questionVote = getUserVote(question.id, 'question');
   const isQuestionOwner = user?.id === question.authorId;
+  const hasAIAnswer = question.answers.some(answer => answer.isAiGenerated);
 
   const VoteButton: React.FC<{ 
     direction: 'up' | 'down'; 
@@ -203,6 +226,36 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
           </div>
         </div>
 
+        {/* AI Answer Button */}
+        {!hasAIAnswer && (
+          <div className="mb-8">
+            <button
+              onClick={handleGenerateAIAnswer}
+              disabled={isGeneratingAI}
+              className="w-full glass-effect rounded-2xl p-4 hover:bg-[color:var(--bg-tertiary)] transition-all duration-300 border border-dashed border-[color:var(--accent-primary)] group"
+            >
+              <div className="flex items-center justify-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                  {isGeneratingAI ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <Bot className="h-5 w-5 text-white" />
+                  )}
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold flex items-center space-x-2" style={{ color: 'var(--text-primary)' }}>
+                    <span>{isGeneratingAI ? 'Generating AI Answer...' : 'Get AI Answer'}</span>
+                    <Sparkles className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    Get an instant answer powered by Google Gemini AI
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Answers */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-6 flex items-center" style={{ color: 'var(--text-primary)' }}>
@@ -226,9 +279,20 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
                     className={`glass-effect rounded-3xl p-6 lg:p-8 shadow-2xl transition-all duration-300 ${
                       answer.isAccepted 
                         ? 'border-green-500/30 bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-green-500/10' 
+                        : answer.isAiGenerated
+                        ? 'border-purple-500/30 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10'
                         : ''
                     }`}
                   >
+                    {/* AI Answer Badge */}
+                    {answer.isAiGenerated && (
+                      <div className="flex items-center space-x-2 mb-4 glass-effect px-3 py-2 rounded-full w-fit border border-purple-500/30">
+                        <Bot className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium text-purple-500">AI Generated Answer</span>
+                        <Sparkles className="h-4 w-4 text-purple-500" />
+                      </div>
+                    )}
+
                     <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                       {/* Voting - Desktop */}
                       <div className="hidden lg:flex flex-col items-center space-y-4 glass-effect rounded-3xl p-6 shadow-sm">
@@ -236,7 +300,7 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
                           direction="up"
                           onClick={() => handleVote(answer.id, 'answer', 1)}
                           active={answerVote?.value === 1}
-                          disabled={!user}
+                          disabled={!user || answer.isAiGenerated}
                         />
                         <span className="text-2xl font-bold gradient-text">
                           {answer.votes}
@@ -245,11 +309,11 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
                           direction="down"
                           onClick={() => handleVote(answer.id, 'answer', -1)}
                           active={answerVote?.value === -1}
-                          disabled={!user}
+                          disabled={!user || answer.isAiGenerated}
                         />
                         
                         {/* Accept Answer Button */}
-                        {isQuestionOwner && !question.acceptedAnswerId && (
+                        {isQuestionOwner && !question.acceptedAnswerId && !answer.isAiGenerated && (
                           <button
                             onClick={() => handleAcceptAnswer(answer.id)}
                             className="p-3 rounded-2xl hover:bg-green-500/10 transition-all duration-300 border-2 border-dashed hover:border-green-500/50"
@@ -281,7 +345,7 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
                             direction="up"
                             onClick={() => handleVote(answer.id, 'answer', 1)}
                             active={answerVote?.value === 1}
-                            disabled={!user}
+                            disabled={!user || answer.isAiGenerated}
                           />
                           <span className="text-xl font-bold gradient-text">
                             {answer.votes}
@@ -290,10 +354,10 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
                             direction="down"
                             onClick={() => handleVote(answer.id, 'answer', -1)}
                             active={answerVote?.value === -1}
-                            disabled={!user}
+                            disabled={!user || answer.isAiGenerated}
                           />
                           
-                          {isQuestionOwner && !question.acceptedAnswerId && (
+                          {isQuestionOwner && !question.acceptedAnswerId && !answer.isAiGenerated && (
                             <button
                               onClick={() => handleAcceptAnswer(answer.id)}
                               className="p-2 rounded-xl hover:bg-green-500/10 transition-all duration-300 border hover:border-green-500/50"
@@ -312,18 +376,33 @@ const QuestionDetailPage: React.FC<QuestionDetailPageProps> = ({ question, onBac
                         </div>
 
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] rounded-full flex items-center justify-center shadow-lg">
-                              <User className="h-4 w-4 text-white" />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{answer.author.username}</span>
-                              <div className="flex items-center space-x-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                                <Award className="h-3 w-3" />
-                                <span>{answer.author.reputation} reputation</span>
+                          {!answer.isAiGenerated ? (
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] rounded-full flex items-center justify-center shadow-lg">
+                                <User className="h-4 w-4 text-white" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{answer.author.username}</span>
+                                <div className="flex items-center space-x-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                                  <Award className="h-3 w-3" />
+                                  <span>{answer.author.reputation} reputation</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
+                                <Bot className="h-4 w-4 text-white" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-purple-500">AI Assistant</span>
+                                <div className="flex items-center space-x-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                                  <Sparkles className="h-3 w-3" />
+                                  <span>Powered by Google Gemini</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           <div className="flex items-center space-x-1 text-xs glass-effect px-3 py-2 rounded-full" style={{ color: 'var(--text-tertiary)' }}>
                             <Clock className="h-3 w-3" />
                             <span>{formatDistanceToNow(answer.createdAt, { addSuffix: true })}</span>
