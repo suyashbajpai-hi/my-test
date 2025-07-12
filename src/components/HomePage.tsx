@@ -11,7 +11,7 @@ interface HomePageProps {
 }
 
 const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
-  const { questions } = useData();
+  const { questions, isLoading } = useData();
   const { user } = useAuth();
   const { isDark } = useTheme();
   const [sortBy, setSortBy] = useState<'newest' | 'votes' | 'views'>('newest');
@@ -110,6 +110,15 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
 
             {/* Questions List */}
             <div className="space-y-4 lg:space-y-6">
+              {isLoading ? (
+                <div className="text-center py-12 lg:py-16">
+                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[var(--accent-primary)]/20 via-[var(--accent-secondary)]/20 to-[var(--accent-tertiary)]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <div className="w-8 h-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Loading questions...</h3>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Please wait while we fetch the latest questions.</p>
+                </div>
+              ) : 
               {filteredQuestions.length === 0 ? (
                 <div className="text-center py-12 lg:py-16">
                   <div className="w-20 h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[var(--accent-primary)]/20 via-[var(--accent-secondary)]/20 to-[var(--accent-tertiary)]/20 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -139,7 +148,7 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
                     onClick={() => onQuestionClick(question)}
                   />
                 ))
-              )}
+              ))}
             </div>
           </div>
 

@@ -46,16 +46,23 @@ const AskQuestionPage: React.FC<AskQuestionPageProps> = ({ onBack }) => {
     setIsSubmitting(true);
     
     try {
-      addQuestion({
+      await addQuestion({
         title: formData.title.trim(),
         description: formData.description,
         tags: formData.tags,
         authorId: user.id,
-        author: user
+      });
+      
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        tags: []
       });
       
       onBack();
     } catch (err) {
+      console.error('Failed to submit question:', err);
       setError('Failed to submit question. Please try again.');
     } finally {
       setIsSubmitting(false);

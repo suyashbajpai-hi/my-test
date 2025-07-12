@@ -138,6 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (username: string, email: string, password: string) => {
     setIsLoading(true);
     try {
+      console.log('Registering user:', { username, email });
+      
       // Check if username already exists
       const { data: existingUser } = await supabase
         .from('users')
@@ -156,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (authError) throw authError;
+      console.log('User registered successfully:', authData.user?.id);
 
       if (authData.user) {
         // Create user profile
@@ -172,8 +175,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
         if (profileError) throw profileError;
+        console.log('User profile created successfully');
       }
     } catch (error: any) {
+      console.error('Registration error:', error);
       throw new Error(error.message || 'Registration failed');
     } finally {
       setIsLoading(false);
