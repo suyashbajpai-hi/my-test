@@ -1,3 +1,84 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme variables */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-tertiary: #94a3b8;
+    --border-color: #e2e8f0;
+    --accent-primary: #0ea5e9;
+    --accent-secondary: #0284c7;
+    --accent-tertiary: #0369a1;
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow-color: rgba(0, 0, 0, 0.1);
+  }
+
+  [data-theme="dark"] {
+    /* Dark theme variables */
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #0f0f1a;
+    --bg-tertiary: #1a1a2e;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --accent-primary: #00ffff;
+    --accent-secondary: #0ea5e9;
+    --accent-tertiary: #0891b2;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --shadow-color: rgba(0, 255, 255, 0.2);
+  }
+
+  body {
+    @apply transition-colors duration-300;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  }
+  
+  * {
+    @apply transition-colors duration-200;
+  }
+}
+
+@layer components {
+  .glass-effect {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .card-hover {
+    @apply hover:bg-white/10 hover:border-white/20 transition-all duration-300;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-cyan-400 via-blue-500 to-teal-400 bg-clip-text text-transparent;
+  }
+  
+  .glow-effect {
+    box-shadow: 0 0 20px var(--shadow-color);
+  }
+
+  .grid-pattern {
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .grid-pattern-dark {
+    background-image: 
+      linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+}

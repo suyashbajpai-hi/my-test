@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Filter, ChevronDown, TrendingUp, Clock, MessageSquare, Sparkles, Star, Users } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import QuestionCard from './QuestionCard';
 import { Question } from '../types';
 
@@ -12,6 +13,7 @@ interface HomePageProps {
 const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
   const { questions } = useData();
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const [sortBy, setSortBy] = useState<'newest' | 'votes' | 'views'>('newest');
   const [filterBy, setFilterBy] = useState<'all' | 'unanswered' | 'answered'>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -54,7 +56,7 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <div className="flex flex-col xl:flex-row gap-6 lg:gap-8">
           {/* Main Content */}
@@ -62,10 +64,10 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 lg:mb-8 gap-4">
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
+                <h1 className="text-2xl lg:text-3xl font-bold gradient-text">
                   Questions
                 </h1>
-                <p className="text-gray-600 mt-1 text-sm lg:text-base">
+                <p className="mt-1 text-sm lg:text-base" style={{ color: 'var(--text-secondary)' }}>
                   {filteredQuestions.length} question{filteredQuestions.length !== 1 ? 's' : ''} found
                 </p>
               </div>
@@ -76,7 +78,8 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="appearance-none bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl pl-4 pr-12 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all duration-300 shadow-sm hover:shadow-md w-full sm:w-auto"
+                    className="appearance-none glass-effect rounded-2xl pl-4 pr-12 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[color:var(--accent-primary)]/50 focus:border-[color:var(--accent-primary)]/50 transition-all duration-300 shadow-sm hover:shadow-md w-full sm:w-auto"
+                    style={{ color: 'var(--text-primary)', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
                   >
                     <option value="newest">Newest</option>
                     <option value="votes">Most Votes</option>
@@ -84,7 +87,7 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
                   </select>
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 pointer-events-none">
                     {getSortIcon(sortBy)}
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                    <ChevronDown className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                   </div>
                 </div>
 
@@ -93,13 +96,14 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
                   <select
                     value={filterBy}
                     onChange={(e) => setFilterBy(e.target.value as any)}
-                    className="appearance-none bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl pl-4 pr-12 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all duration-300 shadow-sm hover:shadow-md w-full sm:w-auto"
+                    className="appearance-none glass-effect rounded-2xl pl-4 pr-12 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[color:var(--accent-primary)]/50 focus:border-[color:var(--accent-primary)]/50 transition-all duration-300 shadow-sm hover:shadow-md w-full sm:w-auto"
+                    style={{ color: 'var(--text-primary)', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
                   >
                     <option value="all">All Questions</option>
                     <option value="unanswered">Unanswered</option>
                     <option value="answered">Answered</option>
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
                 </div>
               </div>
             </div>
@@ -108,21 +112,21 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
             <div className="space-y-4 lg:space-y-6">
               {filteredQuestions.length === 0 ? (
                 <div className="text-center py-12 lg:py-16">
-                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <MessageSquare className="h-10 w-10 lg:h-12 lg:w-12 text-gray-400" />
+                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[var(--accent-primary)]/20 via-[var(--accent-secondary)]/20 to-[var(--accent-tertiary)]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <MessageSquare className="h-10 w-10 lg:h-12 lg:w-12" style={{ color: 'var(--text-tertiary)' }} />
                   </div>
-                  <div className="text-gray-500 max-w-md mx-auto">
+                  <div className="max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
                     {questions.length === 0 ? (
                       <>
-                        <h3 className="text-xl font-semibold mb-2">No questions yet!</h3>
+                        <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>No questions yet!</h3>
                         {user && (
-                          <p className="text-sm">Be the first to ask a question and start the conversation.</p>
+                          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Be the first to ask a question and start the conversation.</p>
                         )}
                       </>
                     ) : (
                       <>
-                        <h3 className="text-xl font-semibold mb-2">No questions match your filters</h3>
-                        <p className="text-sm">Try adjusting your search criteria or clearing the filters.</p>
+                        <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>No questions match your filters</h3>
+                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Try adjusting your search criteria or clearing the filters.</p>
                       </>
                     )}
                   </div>
@@ -142,9 +146,9 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
           {/* Sidebar */}
           <div className="w-full xl:w-80 space-y-6">
             {/* Filter by Tags */}
-            <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-3 shadow-lg">
+            <div className="glass-effect rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 card-hover">
+              <h3 className="text-lg font-semibold mb-4 flex items-center" style={{ color: 'var(--text-primary)' }}>
+                <div className="w-8 h-8 bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] rounded-xl flex items-center justify-center mr-3 shadow-lg glow-effect">
                   <Filter className="h-4 w-4 text-white" />
                 </div>
                 Filter by Tags
@@ -156,9 +160,10 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
                     onClick={() => toggleTag(tag)}
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-300 ${
                       selectedTags.includes(tag)
-                        ? 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white shadow-lg transform scale-105'
-                        : 'bg-gray-100/80 text-gray-700 hover:bg-gray-200/80 hover:scale-105'
+                        ? 'bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] text-white shadow-lg transform scale-105 glow-effect'
+                        : 'glass-effect hover:bg-[color:var(--bg-tertiary)] hover:scale-105'
                     }`}
+                    style={{ color: selectedTags.includes(tag) ? 'white' : 'var(--text-secondary)' }}
                   >
                     {tag}
                   </button>
@@ -167,7 +172,8 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
               {selectedTags.length > 0 && (
                 <button
                   onClick={() => setSelectedTags([])}
-                  className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  className="mt-4 text-sm font-medium transition-colors"
+                  style={{ color: 'var(--accent-primary)' }}
                 >
                   Clear all filters
                 </button>
@@ -175,38 +181,38 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
             </div>
 
             {/* Statistics */}
-            <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center mr-3 shadow-lg">
+            <div className="glass-effect rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 card-hover">
+              <h3 className="text-lg font-semibold mb-4 flex items-center" style={{ color: 'var(--text-primary)' }}>
+                <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center mr-3 shadow-lg glow-effect">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
                 Community Stats
               </h3>
               <div className="space-y-4">
-                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 rounded-2xl border border-blue-100/50">
-                  <span className="text-gray-700 font-medium flex items-center">
-                    <MessageSquare className="h-4 w-4 mr-2 text-blue-600" />
+                <div className="flex justify-between items-center p-4 glass-effect rounded-2xl border" style={{ borderColor: 'var(--accent-primary)' }}>
+                  <span className="font-medium flex items-center" style={{ color: 'var(--text-secondary)' }}>
+                    <MessageSquare className="h-4 w-4 mr-2" style={{ color: 'var(--accent-primary)' }} />
                     Total Questions
                   </span>
-                  <span className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  <span className="text-xl font-bold gradient-text">
                     {questions.length}
                   </span>
                 </div>
-                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-100/50">
-                  <span className="text-gray-700 font-medium flex items-center">
-                    <Star className="h-4 w-4 mr-2 text-green-600" />
+                <div className="flex justify-between items-center p-4 glass-effect rounded-2xl border" style={{ borderColor: 'rgb(34 197 94)' }}>
+                  <span className="font-medium flex items-center" style={{ color: 'var(--text-secondary)' }}>
+                    <Star className="h-4 w-4 mr-2 text-green-500" />
                     Answered
                   </span>
-                  <span className="text-xl font-bold text-green-600">
+                  <span className="text-xl font-bold text-green-500">
                     {questions.filter(q => q.answers.length > 0).length}
                   </span>
                 </div>
-                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl border border-orange-100/50">
-                  <span className="text-gray-700 font-medium flex items-center">
-                    <Clock className="h-4 w-4 mr-2 text-orange-600" />
+                <div className="flex justify-between items-center p-4 glass-effect rounded-2xl border" style={{ borderColor: 'rgb(249 115 22)' }}>
+                  <span className="font-medium flex items-center" style={{ color: 'var(--text-secondary)' }}>
+                    <Clock className="h-4 w-4 mr-2 text-orange-500" />
                     Unanswered
                   </span>
-                  <span className="text-xl font-bold text-orange-600">
+                  <span className="text-xl font-bold text-orange-500">
                     {questions.filter(q => q.answers.length === 0).length}
                   </span>
                 </div>
@@ -214,9 +220,9 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
             </div>
 
             {/* Popular Tags */}
-            <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-3 shadow-lg">
+            <div className="glass-effect rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 card-hover">
+              <h3 className="text-lg font-semibold mb-4 flex items-center" style={{ color: 'var(--text-primary)' }}>
+                <div className="w-8 h-8 bg-gradient-to-r from-[var(--accent-secondary)] to-[var(--accent-primary)] rounded-xl flex items-center justify-center mr-3 shadow-lg glow-effect">
                   <Users className="h-4 w-4 text-white" />
                 </div>
                 Popular Tags
@@ -226,7 +232,8 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
                   <span
                     key={tag}
                     onClick={() => toggleTag(tag)}
-                    className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 hover:from-blue-100 hover:to-purple-100 hover:text-blue-700 transition-all duration-300 cursor-pointer hover:scale-105 shadow-sm hover:shadow-md"
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium glass-effect hover:bg-[color:var(--bg-tertiary)] transition-all duration-300 cursor-pointer hover:scale-105 shadow-sm hover:shadow-md"
+                    style={{ color: 'var(--text-secondary)' }}
                   >
                     {tag}
                   </span>
@@ -236,27 +243,27 @@ const HomePage: React.FC<HomePageProps> = ({ onQuestionClick }) => {
 
             {/* Welcome Message for New Users */}
             {!user && (
-              <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border border-blue-200/50 rounded-3xl p-6 shadow-lg">
+              <div className="glass-effect border rounded-3xl p-6 shadow-lg glow-effect" style={{ borderColor: 'var(--accent-primary)' }}>
                 <div className="text-center">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-r from-[var(--accent-primary)] via-[var(--accent-secondary)] to-[var(--accent-tertiary)] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg glow-effect">
                     <Sparkles className="h-6 w-6 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Join StackIt</h3>
-                  <p className="text-gray-600 text-sm mb-4">
+                  <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Join StackIt</h3>
+                  <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
                     Sign up to ask questions, provide answers, and build your reputation in the community.
                   </p>
-                  <div className="space-y-2 text-xs text-gray-500">
+                  <div className="space-y-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                     <div className="flex items-center justify-center space-x-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span>Ask unlimited questions</span>
+                      <div className="w-2 h-2 bg-[var(--accent-primary)] rounded-full"></div>
+                      <span>Ask questions and get answers</span>
                     </div>
                     <div className="flex items-center justify-center space-x-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span>Vote on answers</span>
-                    </div>
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-[var(--accent-secondary)] rounded-full"></div>
                       <span>Build your reputation</span>
+                    </div>
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="w-2 h-2 bg-[var(--accent-tertiary)] rounded-full"></div>
+                      <span>Connect with developers</span>
                     </div>
                   </div>
                 </div>

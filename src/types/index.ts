@@ -2,11 +2,9 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  avatar?: string | null;
+  avatar?: string;
   role: 'guest' | 'user' | 'admin';
   reputation: number;
-  questionsAnswered: number;
-  badge: string;
   joinedAt: Date;
 }
 
@@ -22,7 +20,7 @@ export interface Question {
   votes: number;
   views: number;
   answers: Answer[];
-  acceptedAnswerId?: string | null;
+  acceptedAnswerId?: string;
 }
 
 export interface Answer {
@@ -35,7 +33,6 @@ export interface Answer {
   updatedAt: Date;
   votes: number;
   isAccepted: boolean;
-  isAIGenerated?: boolean;
 }
 
 export interface Notification {

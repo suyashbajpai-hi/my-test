@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import HomePage from './components/HomePage';
 import AskQuestionPage from './components/AskQuestionPage';
 import QuestionDetailPage from './components/QuestionDetailPage';
-import ProfilePage from './components/ProfilePage';
 import { Question } from './types';
 
-type PageType = 'home' | 'ask' | 'question' | 'profile';
+type PageType = 'home' | 'ask' | 'question';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
@@ -21,10 +21,6 @@ function App() {
 
   const handleAskQuestion = () => {
     setCurrentPage('ask');
-  };
-
-  const handleProfile = () => {
-    setCurrentPage('profile');
   };
 
   const handleHome = () => {
@@ -42,8 +38,6 @@ function App() {
         ) : (
           <HomePage onQuestionClick={handleQuestionClick} />
         );
-      case 'profile':
-        return <ProfilePage onBack={handleHome} />;
       case 'home':
       default:
         return <HomePage onQuestionClick={handleQuestionClick} />;
@@ -51,20 +45,23 @@ function App() {
   };
 
   return (
-    <AuthProvider>
-      <DataProvider>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30">
-          <Header 
-            onAskQuestion={handleAskQuestion} 
-            onHome={handleHome} 
-            onProfile={handleProfile}
-          />
-          <main>
-            {renderPage()}
-          </main>
-        </div>
-      </DataProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <DataProvider>
+          <div className="min-h-screen relative overflow-hidden">
+            {/* Grid Pattern Background */}
+            <div className="absolute inset-0 grid-pattern grid-pattern-dark opacity-30"></div>
+            {/* Main content */}
+            <div className="relative z-10">
+              <Header onAskQuestion={handleAskQuestion} onHome={handleHome} />
+              <main className="relative">
+                {renderPage()}
+              </main>
+            </div>
+          </div>
+        </DataProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
